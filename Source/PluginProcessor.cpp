@@ -5,19 +5,57 @@
 #include <windows.h>
 #endif
 
-// VST2 path is now configurable via registry and GUI
+// Path to Altiverb 7 XL - now configurable via registry
+// const char* ALTIVERB_PATH = "C:\\Program Files\\VSTPlugins\\Altiverb 7\\Altiverb 7.dll";
 
 AltiverbSurroundProcessor::AltiverbSurroundProcessor()
      : AudioProcessor (BusesProperties()
                        .withInput  ("Input",  juce::AudioChannelSet::create5point1(), true)
                        .withOutput ("Output", juce::AudioChannelSet::create5point1(), true))
 {
+    // WORKING VERSION - instance-specific logging to avoid handle conflicts
+    #ifdef _WIN32
+    errno_t err = fopen_s(&logFile, "C:\\IT\\code\\altiverb_wrapper_log.txt", "a");
+    if (err == 0 && logFile) {
+        SYSTEMTIME st;
+        GetLocalTime(&st);
+        fprintf(logFile, "==========================================\n");
+        fprintf(logFile, "NEW INSTANCE: %02d:%02d:%02d.%03d\n", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+        fprintf(logFile, "AltiverbSurroundProcessor: Constructor started\n");
+        fprintf(logFile, "==========================================\n");
+        fflush(logFile);
+    }
+    #endif
+    
     // Create VST2Loader but don't load plugin yet
     vst2Loader = std::make_unique<VST2Loader>();
+    
+    if (logFile) {
+        fprintf(logFile, "AltiverbSurroundProcessor: Constructor finished\n");
+        fflush(logFile);
+    }
 }
 
 AltiverbSurroundProcessor::~AltiverbSurroundProcessor() {
-    vst2Loader.reset();
+    #ifdef _WIN32
+    if (logFile) {
+        fprintf(logFile, "=== DESTRUCTOR CALLED ===\n");
+        fflush(logFile);
+        
+        if (vst2Loader) {
+            fprintf(logFile, "Resetting VST2 loader...\n");
+            fflush(logFile);
+            vst2Loader.reset();
+            fprintf(logFile, "VST2 loader reset complete\n");
+            fflush(logFile);
+        }
+        
+        fprintf(logFile, "=== DESTRUCTOR COMPLETE ===\n");
+        fflush(logFile);
+        fclose(logFile);
+        logFile = nullptr;
+    }
+    #endif
 }
 
 const juce::String AltiverbSurroundProcessor::getName() const {
@@ -66,12 +104,24 @@ void AltiverbSurroundProcessor::prepareToPlay(double sampleRate, int samplesPerB
     inputChannelPtrs.resize(6);
     outputChannelPtrs.resize(6);
     
-    // Try to load Altiverb if not loaded yet
+    // Try to load Altiverb if not loaded yet (working version pattern)
     if (!pluginLoaded) {
+        printf("=== ATTEMPTING TO LOAD ALTIVERB VST2 ===\n");
+        
+        // Get configurable VST2 path
         juce::String vst2Path = getVST2Path();
+        printf("Path: %s\n", vst2Path.toUTF8());
+        fflush(stdout);
         
         if (vst2Loader->loadPlugin(vst2Path.toUTF8())) {
             pluginLoaded = true;
+            printf("=== SUCCESS: ALTIVERB VST2 LOADED! ===\n");
+            fflush(stdout);
+            
+            int numParams = vst2Loader->getNumParameters();
+            printf("Altiverb has %d parameters\n", numParams);
+            printf("Altiverb has editor: %s\n", vst2Loader->hasEditor() ? "YES" : "NO");
+            fflush(stdout);
         }
     }
     
@@ -80,12 +130,16 @@ void AltiverbSurroundProcessor::prepareToPlay(double sampleRate, int samplesPerB
         vst2Loader->setBlockSize(samplesPerBlock);
         vst2Loader->resume();
         
-        // Force 5.1 configuration after resume
+        // FORCE 5.1 CONFIGURATION AFTER RESUME
+        printf("=== FORCING 5.1 CONFIGURATION ===\n");
+        fflush(stdout);
+        
         auto* effect = vst2Loader->getEffect();
         if (effect) {
             // Force 6 channels
             effect->numInputs = 6;
             effect->numOutputs = 6;
+            printf("Forced channels to 6/6\n");
             
             // Setup 5.1 speaker arrangements
             VstSpeakerArrangement inputs, outputs;
@@ -94,16 +148,28 @@ void AltiverbSurroundProcessor::prepareToPlay(double sampleRate, int samplesPerB
             outputs.type = kSpeakerArr51;
             outputs.numChannels = 6;
             
-            // Set speaker arrangement
-            effect->dispatcher(effect, effSetSpeakerArrangement, 0, 
-                             (VstIntPtr)&inputs, &outputs, 0.0f);
+            // Try setting speaker arrangement
+            VstIntPtr result = effect->dispatcher(effect, effSetSpeakerArrangement, 0, 
+                                                 (VstIntPtr)&inputs, &outputs, 0.0f);
+            printf("effSetSpeakerArrangement result: %lld\n", (long long)result);
+            fflush(stdout);
         }
+        
+        printf("Altiverb prepared: %f Hz, %d samples\n", sampleRate, samplesPerBlock);
+        fflush(stdout);
     }
 }
 
 void AltiverbSurroundProcessor::releaseResources() {
+    printf("=== releaseResources called ===\n");
+    fflush(stdout);
+    
     if (pluginLoaded) {
+        printf("Suspending Altiverb...\n");
+        fflush(stdout);
         vst2Loader->suspend();
+        printf("Altiverb suspended successfully\n");
+        fflush(stdout);
     }
 }
 
@@ -143,6 +209,14 @@ void AltiverbSurroundProcessor::mapOutputChannels(juce::AudioBuffer<float>& buff
 void AltiverbSurroundProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages) {
     juce::ScopedNoDenormals noDenormals;
     
+    static int logCounter = 0;
+    if (++logCounter % 4800 == 0) { // Log every ~10 seconds at 48kHz
+        printf("=== PROCESSING AUDIO ===\n");
+        printf("Channels: %d, Samples: %d\n", buffer.getNumChannels(), buffer.getNumSamples());
+        printf("Altiverb: %s\n", pluginLoaded ? "LOADED & PROCESSING" : "PASSTHROUGH");
+        fflush(stdout);
+    }
+    
     if (!pluginLoaded) {
         // Simple passthrough mode
         return;
@@ -176,19 +250,36 @@ void AltiverbSurroundProcessor::processBlock(juce::AudioBuffer<float>& buffer, j
 }
 
 bool AltiverbSurroundProcessor::hasEditor() const {
+    printf("=== hasEditor() called - returning TRUE for button GUI ===\n");
+    fflush(stdout);
+    
+    // Return true like working version
     return true;
 }
 
 juce::AudioProcessorEditor* AltiverbSurroundProcessor::createEditor() {
-    return new AltiverbSurroundEditor(*this);
+    printf("=== createEditor() called - creating simple button GUI ===\n");
+    fflush(stdout);
+    
+    auto* editor = new AltiverbSurroundEditor(*this);
+    printf("Simple GUI Editor created successfully: %p\n", editor);
+    fflush(stdout);
+    return editor;
 }
 
 void AltiverbSurroundProcessor::getStateInformation(juce::MemoryBlock& destData) {
+    printf("=== getStateInformation called ===\n");
+    fflush(stdout);
+    
     destData.setSize(0);
+    printf("State info: returned empty data\n");
+    fflush(stdout);
 }
 
 void AltiverbSurroundProcessor::setStateInformation(const void* data, int sizeInBytes) {
-    // State restoration not currently implemented
+    printf("=== setStateInformation called ===\n");
+    printf("Set state: %d bytes\n", sizeInBytes);
+    fflush(stdout);
 }
 
 // VST2 Path Configuration Methods
@@ -202,7 +293,7 @@ juce::String AltiverbSurroundProcessor::getVST2Path() {
     // Try common default locations
     std::vector<juce::String> commonPaths = {
         "C:\\Program Files\\VSTPlugins\\Altiverb 7\\Altiverb 7.dll",
-        "C:\\!_SYMLINK\\Audioease - Altiverb 7 XL 7.2.8 VST x64 (NO INSTALL, SymLink Installer) [VSEGDA KRASIVO REPACK 21.06.2022]\\C\\Program Files\\VSTPlugins\\Altiverb 7\\Altiverb 7.dll",
+        "C:\\Program Files\\Audio Ease\\Altiverb 7 XL\\Altiverb 7.dll",
         "C:\\Program Files (x86)\\VSTPlugins\\Altiverb 7\\Altiverb 7.dll",
         "C:\\Program Files\\Audio Ease\\Altiverb 7\\Altiverb 7.dll"
     };
@@ -223,18 +314,22 @@ void AltiverbSurroundProcessor::saveVST2Path(const juce::String& path) {
     #ifdef _WIN32
     // Save to Windows Registry
     HKEY hKey;
-    LONG result = RegCreateKeyEx(HKEY_CURRENT_USER, 
-                                L"SOFTWARE\\AltiverbWrapper", 
+    LONG result = RegCreateKeyExA(HKEY_CURRENT_USER, 
+                                "SOFTWARE\\AltiverbWrapper", 
                                 0, NULL, REG_OPTION_NON_VOLATILE,
                                 KEY_WRITE, NULL, &hKey, NULL);
     
     if (result == ERROR_SUCCESS) {
-        std::wstring widePath = path.toWideCharPointer();
-        RegSetValueEx(hKey, L"VST2Path", 0, REG_SZ, 
-                     (BYTE*)widePath.c_str(), 
-                     (widePath.length() + 1) * sizeof(wchar_t));
+        juce::String pathStr = path;
+        RegSetValueExA(hKey, "VST2Path", 0, REG_SZ, 
+                      (BYTE*)pathStr.toRawUTF8(), 
+                      pathStr.length() + 1);
         RegCloseKey(hKey);
         
+        if (logFile) {
+            fprintf(logFile, "VST2 path saved to registry: %s\n", path.toUTF8());
+            fflush(logFile);
+        }
     }
     #endif
 }
@@ -242,17 +337,17 @@ void AltiverbSurroundProcessor::saveVST2Path(const juce::String& path) {
 juce::String AltiverbSurroundProcessor::loadVST2PathFromRegistry() {
     #ifdef _WIN32
     HKEY hKey;
-    LONG result = RegOpenKeyEx(HKEY_CURRENT_USER, 
-                              L"SOFTWARE\\AltiverbWrapper", 
-                              0, KEY_READ, &hKey);
+    LONG result = RegOpenKeyExA(HKEY_CURRENT_USER, 
+                               "SOFTWARE\\AltiverbWrapper", 
+                               0, KEY_READ, &hKey);
     
     if (result == ERROR_SUCCESS) {
-        wchar_t buffer[MAX_PATH];
+        char buffer[MAX_PATH];
         DWORD bufferSize = sizeof(buffer);
         DWORD type;
         
-        result = RegQueryValueEx(hKey, L"VST2Path", NULL, &type, 
-                               (BYTE*)buffer, &bufferSize);
+        result = RegQueryValueExA(hKey, "VST2Path", NULL, &type, 
+                                 (BYTE*)buffer, &bufferSize);
         
         if (result == ERROR_SUCCESS && type == REG_SZ) {
             RegCloseKey(hKey);
