@@ -17,9 +17,10 @@ typedef intptr_t VstIntPtr;
 #endif
 
 enum VstAEffectFlags {
-    effFlagsCanReplacing = 1 << 4,
     effFlagsHasEditor = 1 << 0,
-    effFlagsIsSynth = 1 << 8
+    effFlagsCanReplacing = 1 << 4,
+    effFlagsIsSynth = 1 << 8,
+    effFlagsProgramChunks = 1 << 5
 };
 
 enum VstOpcodes {
@@ -247,7 +248,7 @@ public:
     void resume();
     
     // State management
-    bool getChunk(void** data, bool isPreset);
+    int getChunk(void** data, bool isPreset);  // Returns byte size or 0 if failed
     bool setChunk(void* data, int byteSize, bool isPreset);
     
     static VstIntPtr VSTCALLBACK hostCallback(AEffect* effect, VstInt32 opcode, VstInt32 index, 

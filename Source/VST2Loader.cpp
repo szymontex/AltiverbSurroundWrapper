@@ -383,11 +383,11 @@ void VST2Loader::resume() {
     }
 }
 
-bool VST2Loader::getChunk(void** data, bool isPreset) {
-    if (!effect) return false;
+int VST2Loader::getChunk(void** data, bool isPreset) {
+    if (!effect) return 0;
     
     VstIntPtr byteSize = effect->dispatcher(effect, effGetChunk, isPreset ? 1 : 0, 0, data, 0.0f);
-    return byteSize > 0;
+    return (int)byteSize;  // Return actual byte size
 }
 
 bool VST2Loader::setChunk(void* data, int byteSize, bool isPreset) {

@@ -2,7 +2,7 @@
 
 <JUCERPROJECT id="xHzK9a" name="AltiverbSurroundWrapper" projectType="audioplug"
               useAppConfig="0" addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1"
-              version="1.0.0" companyName="AltiverbWrapper" companyCopyright="2024"
+              version="1.1.0" companyName="AltiverbWrapper" companyCopyright="2024"
               companyWebsite="" pluginManufacturerCode="Alvw" pluginCode="Asu2"
               pluginChannelConfigs="{6,6}" pluginIsSynth="0" pluginWantsMidiIn="0"
               pluginProducesMidiOut="0" pluginIsMidiEffectPlugin="0" pluginEditorRequiresKeys="0"

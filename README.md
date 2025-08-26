@@ -2,6 +2,14 @@
 
 A VST3 wrapper that enables **5.1 surround sound** processing with **Altiverb 7 XL** in Studio One and other modern DAWs.
 
+## 🆕 Latest Update (v1.1.0) - Perfect State Management!
+✅ **Problem SOLVED**: "Not all knobs saved" issue completely fixed!  
+✅ **Hybrid State Management**: Perfect session recall - all controls, presets, and settings now save/load flawlessly  
+✅ **Zero Configuration**: Works automatically with existing projects  
+✅ **Production Ready**: Clean, optimized build for maximum performance  
+
+👉 **[Download v1.1.0](../../releases/latest)** - The definitive version with bulletproof state management!
+
 ## 🎯 The Problem This Solves
 
 **Altiverb 7 XL** is one of the best convolution reverbs available, with stunning 5.1 surround impulse responses. However:
@@ -24,10 +32,11 @@ This wrapper:
 ## ✨ Features
 
 - **🎵 5.1 Surround Processing** - Full 6-channel audio routing (L, R, C, LFE, Ls, Rs)
+- **💾 Perfect State Management** - Hybrid system saves both chunks and parameters for 100% session recall
 - **🎛️ Native GUI Integration** - Opens the original Altiverb interface in a popup window
 - **⚙️ Configurable VST2 Path** - Browse and select your Altiverb installation location
 - **🔄 Multiple Instance Support** - Stable operation with multiple plugin instances
-- **💾 Registry Configuration** - Automatically remembers your VST2 path selection
+- **📁 Smart Configuration** - Automatically remembers your VST2 path and all plugin settings
 
 ## 📋 Requirements
 

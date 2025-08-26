@@ -46,6 +46,9 @@ public:
 private:
     std::unique_ptr<VST2Loader> vst2Loader;
     
+    // VST3 parameters (required for state management)
+    juce::AudioParameterFloat* dummyParam;
+    
     // Audio buffers for VST2 processing
     std::vector<float*> inputChannelPtrs;
     std::vector<float*> outputChannelPtrs;
@@ -57,7 +60,6 @@ private:
     int currentBlockSize = 512;
     
     // Instance-specific logging
-    FILE* logFile = nullptr;
     void logMessage(const char* format, ...);
     
     // VST2 path configuration (private helper)
